@@ -1,0 +1,76 @@
+<!-- Copyright 2024 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script type="importmap">
+    {
+        "imports":{
+           "three":"https://cdn.jsdelivr.net/npm/three@0.166.0/build/three.module.js",
+           "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.166.0/examples/jsm/"
+        }
+     }            
+  </script>
+  <script src="https://unpkg.com/lil-gui@0.19.2/dist/lil-gui.umd.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"></script>
+  <title>AI Agent - Cymbal Game Studios</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="/static/js/main.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto" type="text/css">
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/static/css/style.css" type="text/css">
+</head>
+<body>
+  <script type="module">
+    import {reloadCurrentModel} from "/static/js/3dmodel.js"
+    window.reloadCurrentModel = reloadCurrentModel;
+  </script>
+
+<div class="hero">
+    <h1>Build your own <br>AI Agent</h1><h2>with Google Cloud</h2>
+    <ul>
+      <li>Powered by</li>
+      <li><img src="/static/logos/gcp.png"></li>
+      <li><img src="/static/logos/vertexai.png"></li>
+      <li><img src="/static/logos/gemini.svg"></li>
+    </ul>
+  </div>
+
+  <div id="modelWindow">
+    <div id="titleBar">
+      <span id="titleText">3D Model</span>
+      <button id="closeButton">X</button>
+    </div>
+    <div id="modelContainer"></div>
+  </div>
+
+  <div class="chat-container">
+    <div class="chat-history" id="chat-history">
+      <div class="chat-message chatbot">
+        <div class="msg">Hi! How can we help you today?</div>
+      </div>
+    </div>
+    <div class="chat-input-container">
+      <form id="chat-form" hx-post="/chat" hx-target=".response-target"  hx-indicator="#loading-indicator" hx-swap="beforeend" hx-on::before-request="this.reset()" hx-on::after-request="scrollToBottom(); enableFormFields(); removeLoadingIndicator();" hx-disabled-elt="input[type='text'], button">
+        <input type="text" name="prompt" id="prompt" placeholder="Type your message here..." autocomplete="off" required>
+        <button id="chat-button" class="btn chat-button" hx-on:click="insertUserPrompt(); insertBotPlaceholder();">Send</button>        
+      </form>
+    </div>
+  </div>
+</body>
+</html>
