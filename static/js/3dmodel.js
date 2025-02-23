@@ -17,15 +17,12 @@ limitations under the License.
 import * as THREE from 'three';
 
 import Stats from 'three/addons/libs/stats.module.js';
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
 let container, stats, clock, gui, mixer, controls;
 let camera, scene, renderer, model;
-
-const api = { model: 'Bugdroid' };
 
 let container_width, container_height = 0;
 
@@ -75,9 +72,7 @@ function init() {
     scene.add( grid );
 
     model = new THREE.Mesh();
-    model.name = 'Bugdroid';
-    
-    loadModel(model).then(result => createGUI(model));
+    loadModel();
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.setPixelRatio( window.devicePixelRatio );
@@ -146,79 +141,55 @@ function setMaterialColor(model, color ) {
 }
 
 export function reloadCurrentModel() {
-    loadModel(model);
+    loadModel();
 }
 
-function loadModel(model) {
-    
-    var modelName = model.name;
-    const loader = new GLTFLoader();
-    
-    console.log("Removing ", model.name);
-    var selectedObject = scene.getObjectByName(modelName);
-    scene.remove(selectedObject);
-    
-    const filename = modelName.toLowerCase().replace(" ", "_");
+function loadModel() {    
+    fetch('/get_model')
+    .then(response => { 
+        if (!response.ok) {
+            console.log("Unable to fetch current user's model. Aborting.");
+        }
+        return response.json()
+    })
+    .then(data => {
+        const loader = new GLTFLoader();        
 
-    return new Promise((resolve, reject) => {
+        console.log("Removing ", data.user_id);
+        var selectedObject = scene.getObjectByName(data.user_id);
+        scene.remove(selectedObject);
+        
+        return new Promise((resolve, reject) => {
+    
+            loader.load( 'static/models/'+data.model, function ( gltf ) {
+                model = gltf.scene;
+                model.name = data.user_id;
 
-        loader.load( 'static/models/'+filename+'.glb', function ( gltf ) {
-            model = gltf.scene;
-            model.name = modelName;
-            console.log("Adding ", model.name);
-            if('animations' in gltf) {
-                model.animations = gltf.animations;
-                console.log('Adding ' + model.animations.length + ' animations.')
-            }
-    
-            scene.add( model );
-    
-            if('animations' in gltf) {
-                mixer = new THREE.AnimationMixer(model);
-                mixer.clipAction(model.animations[0]).play();        
-            }
-    
-            fetch('/get_model/' + model.name)
-            .then(response => { 
-                if (!response.ok) {
-                    console.log("Character data not found. Defaulting to black.");
-                    return {'color': '#000000'}
+                console.log("Adding ", data.user_id, " model.");
+                if('animations' in gltf) {
+                    model.animations = gltf.animations;
+                    console.log('Adding ' + model.animations.length + ' animations.')
                 }
-                return response.json()
-            })
-            .then(data => {
-                setMaterialColor(model, data.color);
-             
-            })
-            .catch(error => console.error('Error:', error));
+        
+                scene.add( model );
+        
+                if('animations' in gltf) {
+                    mixer = new THREE.AnimationMixer(model);
+                    mixer.clipAction(model.animations[0]).play();        
+                }
+        
+                if(!data.original_material) {
+                    setMaterialColor(model, data.color);
+                }
 
-            resolve();
-        }, undefined, function ( e ) {
-            console.error( e );
-            reject();
-        } );
-    });
-}
-
-function createGUI( model ) {
-
-    console.log("Creating GUI");
-
-    const states = [ 
-        'Bugdroid',
-    ];
-
-    gui = new GUI({ autoPlace: false, title: 'Model' });
-    container.appendChild(gui.domElement);
-
-    // states
-
-    const statesFolder = gui.add( api, 'model' ).options( states );
-    statesFolder.onChange( function (e) {
-        model = new THREE.Mesh();
-        model.name = e;
-        loadModel(model);
-    } );
+                resolve();
+            }, undefined, function ( e ) {
+                console.error( e );
+                reject();
+            } );
+        });
+    })
+    .catch(error => console.error('Error:', error));
 
 }
 

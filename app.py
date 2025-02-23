@@ -37,7 +37,7 @@ from services.user import User as UserService
 
 PROJECT_ID = os.environ.get("PROJECT_ID", "<GCP_PROJECT_ID>")
 REGION = os.environ.get("REGION", "<GCP_REGION>")
-FAKE_USER_ID = 1
+FAKE_USER_ID = "7608dc3f-d239-405c-a097-b152ab38a354"
 
 SAFETY_SETTINGS = {
     generative_models.HarmCategory.HARM_CATEGORY_UNSPECIFIED: generative_models.HarmBlockThreshold.BLOCK_NONE,
@@ -64,7 +64,7 @@ def init_model():
         config.get_property('general', 'gemini_version'),
         tools=[retail_tool],
         generation_config=GenerationConfig(temperature=1),
-        system_instruction=[config.get_property('chatbot', 'llm_system_instruction')]
+        system_instruction=[config.get_property('chatbot', 'llm_system_instruction') + config.get_property('chatbot', 'llm_response_type')]
     )
 
     return model
@@ -145,7 +145,7 @@ def chat():
             logging.info(function_params)
             logging.info("Calling  " + function_name)
 
-            function_response = function_calling.call_function(user_service, function_name, function_params)
+            function_response, html_response = function_calling.call_function(user_service, function_name, function_params)
 
             response = chat.send_message(
                     Part.from_function_response(
@@ -157,7 +157,7 @@ def chat():
                 safety_settings=SAFETY_SETTINGS     
             )
 
-            text_response = function_calling.extract_text(response)
+            text_response = function_calling.extract_text(response) + html_response
 
         except TypeError as e:
             logging.error("%s, %s", traceback.format_exc(), e)
@@ -189,13 +189,15 @@ def version():
         })
 
 # Get character color
-@app.route("/get_model/<model_name>", methods=["GET"])
-def get_color(model_name):
-    model = user_service.get_model(FAKE_USER_ID, model_name)
+@app.route("/get_model", methods=["GET"])
+def get_model():
+    model = user_service.get_model(FAKE_USER_ID)
 
     if('color' in model) :
         response = jsonify({
-            "color": model['color']
+            "model": model['model'],
+            "color": model['color'],
+            "original_material": model['original_material'],
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response

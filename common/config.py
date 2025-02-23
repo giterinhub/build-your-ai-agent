@@ -35,7 +35,7 @@ class Config:
 
     def read_config(self):
         with open("config.ini", mode='r') as file:
-            config = configparser.ConfigParser()
+            config = configparser.ConfigParser(interpolation=None)
             config.read_file(file)
             self.config = config
 
