@@ -15,30 +15,28 @@
 import traceback
 import random
 import logging
-import models.ticket
+from firebase_admin import credentials, firestore
 from json2html import Json2Html
 from vertexai.generative_models import FunctionDeclaration
 from vertexai.preview.vision_models import ImageGenerationModel
-from common.db import getcursor, commit
 from common.function_calling import extract_text
 
 class User:
-    def __init__(self, connection_pool, config_service, rag_model):
-        self.connection_pool = connection_pool
+    def __init__(self, db, config_service, rag_model):
+        """
+        Initializes the User service.
+
+        Args:
+            db: Firestore client instance.
+            config_service: Service to get configuration values.
+            rag_model: The RAG model instance.
+        """
+        self.db = db
         self.config_service = config_service
         self.rag_model = rag_model
 
     @staticmethod
     def get_function_declarations():
-        fc_get_user_tickets = FunctionDeclaration(
-            name="fc_get_user_tickets",
-            description="Get the support tickets that the user",
-            parameters={
-                "type": "object",
-                "properties": {},            
-            }
-        )
-
         fc_generate_profile_picture = FunctionDeclaration(
             name="fc_generate_profile_picture",
             description='''Create new profile picture or avatar.  
@@ -57,7 +55,7 @@ class User:
         fc_rag_retrieval = FunctionDeclaration(
             name="fc_rag_retrieval",
             description='''Function to be invoked when the prompt is 
-                about super secret Digital Natives team at Google.''',
+                about a super secret game called Cloud Meow.''',
             parameters={
                 "type": "object",
                 "properties": {
@@ -69,51 +67,89 @@ class User:
             }
         )
 
+        fc_save_model_color = FunctionDeclaration(
+            name="fc_save_model_color",
+            description="Save model's color when user requests to update his game model by name. Input is a color in hex format",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "model_name": {"type": "string", "description": "The name of the game model user wants to change color of"},
+                    "color": {"type": "string", "description": "Hex color"},
+                },
+                "required": [
+                    "model_name",
+                    "color"
+                ]
+            }
+        )        
+
         return [
-            fc_get_user_tickets,
             fc_generate_profile_picture,
-            fc_rag_retrieval
+            fc_rag_retrieval,
+            fc_save_model_color
         ]
+    
+    def fc_save_model_color(self, user_id, model_name, color):
+        """
+        Saves the model's color to Firestore.
 
-    def fc_rag_retrieval(self, user_id, question_passthrough):
-        response = self.rag_model.generate_content(question_passthrough)
-        return extract_text(response)
+        Args:
+            user_id: The ID of the user.
+            model_name: The name of the game model.
+            color: The hex color to save.
 
-    def fc_get_user_tickets(self, user_id):
+        Returns:
+            A string response for the user.
+        """
         try:
-            with getcursor(self.connection_pool) as cur:
-                cur.execute('''SELECT ticket_id, ticket_type, user_id, message, created_at 
-                            FROM user_tickets 
-                            WHERE user_id = %s''', [user_id])
+            # Get the models collection reference
+            models_ref = self.db.collection("models")
 
-            results = cur.fetchall()
+            # Query for the model with the given name
+            query = models_ref.where("name", "==", model_name)
+            results = query.get()
 
-            tickets = []
-            for i in range(len(results)):
-                tickets.append(models.ticket.Ticket.from_dict(results[i]))
+            if not results:
+                return f"Reply that no character with name '{model_name}' was found."
 
-            # Format the data for json2html
-            formatted_data = [
-                {
-                    "Ticket Type": ticket.ticket_type,
-                    "Message": ticket.message,
-                    "Date": ticket.created_at
-                }
-                for ticket in tickets
-            ]
+            # Update the color of the first matching document
+            for doc in results:
+                doc.reference.update({"color": color})
+                logging.info(f"Updated model '{model_name}' color to '{color}' for user '{user_id}'.")
+                break
 
-            j2h = Json2Html()
-            html_table = j2h.convert(json=formatted_data)
-
-            html_table.__str__
-
-            return html_table
-
+            return "Reply that their character colors have been saved and add this raw HTML in the end: <script>window.reloadCurrentModel();</script>"
+        
         except Exception as e:
             logging.error("%s, %s", traceback.format_exc(), e)
-            return 'Reply that we failed to fetch their tickets. Ask them to try again later'
+            return 'Reply that we failed to update their character settings.'
+
+
+    def fc_rag_retrieval(self, user_id, question_passthrough):
+        """
+        Retrieves information using RAG model.
+
+        Args:
+            user_id: The ID of the user.
+            question_passthrough: The user's prompt.
+
+        Returns:
+            The RAG model's response as a string.
+        """
+        response = self.rag_model.generate_content(question_passthrough)
+        return extract_text(response)
         
     def fc_generate_profile_picture(self, user_id, description):
+        """
+        Generates a profile picture using the image generation model and saves it to Firestore.
+
+        Args:
+            user_id: The ID of the user.
+            description: The description of the desired image.
+
+        Returns:
+            A string response for the user, including the image HTML if successful.
+        """
         try:
             model = ImageGenerationModel.from_pretrained(self.config_service.get_property("general", "imagen_version"))
 
@@ -138,14 +174,10 @@ class User:
 
 
         try:
-            with getcursor(self.connection_pool) as cur:
-                cur.execute(
-                    "UPDATE users SET avatar = %s WHERE user_id = %s; COMMIT;",
-                    (cdn_url, user_id),
-                )
-
-                commit(self.connection_pool)
-                logging.info('Updated user profile picture to %s', cdn_url)
+            # Update Firestore "users" collection
+            user_ref = self.db.collection("users").document(str(user_id))
+            user_ref.update({"avatar": cdn_url})
+            logging.info('Updated user profile picture to %s', cdn_url)
         except Exception as e:
             logging.info("%s, %s", traceback.format_exc(), e)
             return 'Reply that we failed to generate a new profile picture. Ask them to try again later'
@@ -155,3 +187,36 @@ class User:
                 <img style="width: 50%; border-radius: 10px;" src="''' + cdn_url + '''">
             </div>`'''
         
+    def get_model(self, user_id, model_name):
+        """
+        Retrieves the color of a character from Firestore.
+
+        Args:
+            user_id: The ID of the user.
+            model_name: The name of the character.
+
+        Returns:
+            A dictionary containing the character's color information, or None if not found.
+        """
+        try:
+            # Get the models collection reference
+            models_ref = self.db.collection("models")
+
+            # Query for the model with the given name
+            query = models_ref.where("name", "==", model_name)
+            results = query.get()
+
+            if not results:
+                logging.warning(f"No character found with name '{model_name}'.")
+                return None
+
+            # In our current setup, there should only be one matching model
+            model_doc = results[0]
+            model_data = model_doc.to_dict()
+            
+            # we return the full object since it is now already a dict
+            return model_data
+
+        except Exception as e:
+            logging.error("%s, %s", traceback.format_exc(), e)
+            return None

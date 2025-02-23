@@ -19,11 +19,17 @@ class RAG:
     files = []
 
     def __init__(self, config_service: config.Config):
+        print("Starting rag")
         corpora = rag.list_corpora()
         corpus_name = config_service.get_property('rag', 'corpus_name')
         file_paths = config_service.get_property('rag', 'paths').split('|')
 
         rag_corpus = None
+
+        # for c in corpora:
+        #     if c.display_name == corpus_name:
+        #         rag.delete_corpus(c.name)
+        #         return
 
         for c in corpora:
             if c.display_name == corpus_name:
@@ -32,6 +38,7 @@ class RAG:
         if rag_corpus is None:
             rag_corpus = rag.create_corpus(display_name=corpus_name)
             if rag_corpus is None:
+                print("No corpus!")
                 raise Exception('Cannot load nor create new RagCorpus')
 
             # Import Files to the RagCorpus
@@ -43,9 +50,13 @@ class RAG:
             )
 
         self.name = rag_corpus.name
+        print("Corpus name is: " + rag_corpus.name)
+
 
         rag_files = list(rag.list_files(corpus_name=rag_corpus.name))
+        print(rag_files)
         for f in rag_files:
+            print(f.name)
             self.files.append(f.name.split('/')[-1])
 
 

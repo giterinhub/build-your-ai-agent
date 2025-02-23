@@ -24,11 +24,9 @@ COPY . /app
 
 RUN /venv/bin/pip install --disable-pip-version-check -r /app/requirements.txt
 
-ENV FLASK_APP main.py
-
 WORKDIR /app
 
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/static/avatars
 
 ENTRYPOINT ["./entrypoint.sh"]
 

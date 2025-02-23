@@ -178,7 +178,7 @@ function loadModel(model) {
                 mixer.clipAction(model.animations[0]).play();        
             }
     
-            fetch('/get_color/' + model.name)
+            fetch('/get_model/' + model.name)
             .then(response => { 
                 if (!response.ok) {
                     console.log("Character data not found. Defaulting to black.");

@@ -25,9 +25,12 @@ from vertexai.preview.generative_models import (
     Tool,
 )
 
+import firebase_admin
+from firebase_admin import credentials, firestore
+
 from flask import Flask, request, jsonify, render_template
 
-from common import config as configuration, db, function_calling, rag
+from common import config as configuration, function_calling, rag
 from services.user import User as UserService
 
 # Environment variables
@@ -99,8 +102,10 @@ def init_chat(model, user_id):
 chat_model = init_model()
 rag_model = init_rag_model()
 
-# Init services
-db = db.init_db()
+cred = credentials.ApplicationDefault()  # Or use a service account key file
+firebase_admin.initialize_app(cred)
+db = firestore.client()
+
 user_service = UserService(db, config, rag_model)
 
 # Init our session handling variables
@@ -182,6 +187,20 @@ def version():
     return jsonify({
         "version": config.get_property('general', 'version')
         })
+
+# Get character color
+@app.route("/get_model/<model_name>", methods=["GET"])
+def get_color(model_name):
+    model = user_service.get_model(FAKE_USER_ID, model_name)
+
+    if('color' in model) :
+        response = jsonify({
+            "color": model['color']
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+        
+    return 'Character was not found. Double-check the name and try again.', 404
 
 @app.route("/reset", methods=["GET"])
 def reset():

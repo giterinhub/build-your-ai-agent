@@ -13,23 +13,7 @@ variable "service_name" {
   description = "Your Cloud Run service name"
 }
 
-variable "db_instance_name" {
+variable "firestore_database" {
   type = string
-  description = "AlloyDB Instance name"
-  default = "ai-agent-db"
-}
-
-variable "db_user" {
-  type = string
-  description = "AlloyDB username"
-}
-
-variable "db_password" {
-  type = string
-  description = "AlloyDB password"
-}
-
-variable "db_database" {
-  type = string
-  description = "AlloyDB database name"
+  description = "Firestore database name"
 }

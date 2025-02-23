@@ -55,20 +55,8 @@ resource "google_cloud_run_v2_service" "demo_service" {
             value = var.region
         }   
         env {
-            name  = "DB_PASSWORD"
-            value = var.db_password
-        }
-        env {
-            name  = "DB_USER"
-            value = var.db_user
-        }
-        env {
-            name  = "DB_HOST"
-            value = google_alloydb_instance.db.ip_address
-        }
-        env {
-            name  = "DB_DATABASE"
-            value = var.db_database
+            name  = "FIRESTORE_DATABASE"
+            value = var.firestore_database
         }
     }
     service_account = google_service_account.service_account.email
@@ -80,77 +68,10 @@ resource "google_cloud_run_v2_service" "demo_service" {
   }
 }
 
-# AlloyDB Cluster
-resource "google_alloydb_cluster" "db" {
-  cluster_id   = var.service_name
-  location     = var.region
-  depends_on = [google_service_networking_connection.default]
-
-  network_config {
-    network = google_compute_network.db_network.id
-  }
-
-  initial_user {
-    password = var.db_password
-  }
-}
-
-resource "google_alloydb_instance" "db" {
-  cluster       = google_alloydb_cluster.db.name
-  instance_id   = var.db_instance_name
-  instance_type = "PRIMARY"
-
-  machine_config {
-    cpu_count = 1
-  }
-
-}
-
-# Network for AlloyDB
-resource "google_vpc_access_connector" "vpc_connector" {
-  name         = "${var.service_name}-connector"
-  region       = var.region
-  network      = google_compute_network.db_network.name
-  ip_cidr_range = "10.8.0.0/28"
-}
-
-resource "google_compute_network" "db_network" {
-  name                    = "${var.service_name}-network"
-  auto_create_subnetworks = false
-}
-
-resource "google_compute_global_address" "private_ip_address" {
-  name          = "private-ip-address"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = google_compute_network.db_network.id
-}
-
-resource "google_service_networking_connection" "default" {
-  network                 = google_compute_network.db_network.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
-}
-
-resource "google_compute_network_peering_routes_config" "peering_routes" {
-  peering = google_service_networking_connection.default.peering
-  network = google_compute_network.db_network.name
-
-  import_custom_routes = true
-  export_custom_routes = true
-}
 
 # Service Account for Cloud Run
 resource "google_service_account" "service_account" {
   account_id   = "${var.service_name}-sa"
-}
-
-# Permissions
-resource "google_project_iam_member" "alloydb_user" {
-  project = var.project_id
-  role    = "roles/alloydb.client"
-  member  = "serviceAccount:${google_service_account.service_account.email}"
 }
 
 resource "google_project_iam_member" "vertex_ai_user" {

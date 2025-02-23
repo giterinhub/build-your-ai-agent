@@ -20,7 +20,7 @@ Built with Python, it utilizes [AlloyDB](https://cloud.google.com/alloydb) when 
 
 * Cutting-edge AI (Gemini 2.0 Flash)
 * Versatile capabilities (function calling, RAG, image generation)
-* Robust storage (AlloyDB Omni)
+* Robust storage (Cloud Firestore)
 * Streamlined deployment (Docker & Terraform)
 
 ## Getting Started
@@ -33,14 +33,22 @@ Built with Python, it utilizes [AlloyDB](https://cloud.google.com/alloydb) when 
 
 ### Local Setup
 
-1. Clone this repository: `git clone git@github.com:NucleusEngineering/ai-agents.git`
+1. Clone this repository: `git clone git@github.com:NucleusEngineering/build-your-ai-agent.git`
 2. Set environment variables:
    ```bash
    export PROJECT_ID=your-gcp-project-id
    export REGION=your-gcp-region
    ```
-3. Start the Docker containers: docker compose up -d
-4. Access the application at: http://localhost:8080   
+3. Import initial data into Firestore:
+   ```bash
+   gcloud firestore import gs://ai-agent-data-bucket/firestore-schema --database="(default)"
+   ```
+
+4. Start the application 
+   ```bash
+   python3 -m flask run --host=0.0.0.0 --port=8080 --debugger --reload
+   ```
+5. Access the application at: http://localhost:8080   
 
 ### Remote Deployment
 
