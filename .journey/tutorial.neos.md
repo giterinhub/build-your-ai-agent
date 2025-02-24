@@ -5,7 +5,7 @@
   services, use automated build and deployment tools, implement Google Cloud
   APIs to leverage GenAI capabilities and operate your service in production
   ." />
-  <meta name="keywords" content="cloud, go, containers, console, run, AI,
+  <meta name="keywords" content="cloud, python, containers, console, run, AI,
   GenAI, APIs" />
 </walkthrough-metadata>
 
@@ -31,7 +31,7 @@ to production in matter of minutes.
 The tutorial is split into **3 modules**:
 
 **Module 1** will explore Gemini's Function Calling feature. We will be adding new
- methods to fetch data from AlloyDB and manipulate 3D models a little bit.
+ methods to fetch data from Firestore and manipulate your character 3D models a little bit.
 
 **Module 2** will show  you how to work with RAG (Retrieval Augmented Generation). 
 in Vertex AI with help of our Python SDK.
@@ -67,7 +67,8 @@ the provided project ID.
 
 <walkthrough-enable-apis apis="cloudbuild.googleapis.com,
 run.googleapis.com,
-alloydb.googleapis.com,
+vertexai.googleapis.com,
+firestore.googleapis.com,
 artifactregistry.googleapis.com"> </walkthrough-enable-apis>
 
 You can use the builtin
@@ -77,22 +78,26 @@ Shell Terminal </walkthrough-editor-spotlight> to run the gcloud command.
 ## Exploring the code
 
 Take some time and
-<walkthrough-editor-open-file filePath="cloudshell_open/serverless/main.go">
+<walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/app.py">
 familiarize yourself with the code. </walkthrough-editor-open-file>
-
-Also have a look at the dependencies reference in the Go module. You can
-navigate to its [upstream repository](https://github.com/NucleusEngineering/build-your-ai-agent)
-to figure out what it does.
 
 Once you've understood what's going on, you can try to run that app directly in
 Cloud Shell, running the following in the terminal:
 
 ```bash
-docker compose up
+  gcloud config set project <walkthrough-project-id/>
+  gcloud config set run/region us-central1
+  gcloud config set artifacts/location us-central1
+
+  export PROJECT_ID=<walkthrough-project-id/>
+  export REGION=us-central1
+  gcloud firestore import gs://ai-agent-data-bucket/firestore-schema --database="(default)"
+  python3 install -r requirements.txt
+  python3 -m flask run --host=0.0.0.0 --port=8080 --debugger --reload
+
 ```
 
-This downloads dependencies, compiles and starts the web server. You can now use
-Cloud Shell Web Preview on port 8080 to check out your application. You can find
+This downloads dependencies, imports initial data to firestore and starts the web server. You can now use Cloud Shell Web Preview on port 8080 to check out your application. You can find
 the Web Preview <walkthrough-web-preview-icon></walkthrough-web-preview-icon> at
 the top right in Cloud Shell. If you don't see a response from the web server,
 try waiting a little longer for the Go compiler to build and start your server.
@@ -113,7 +118,8 @@ images must be in Docker or OCI format and will be run on Linux x86_64.
 Cloud Run is available in all Google Cloud Platform regions globally. If you are
 unsure where to deploy to, you can use the
 [Region Picker](https://cloud.withgoogle.com/region-picker/) tool to find the
-most suitable one.
+most suitable one. However make sure you select the region where Gemini 2.0 and Imagen 3
+are available.
 
 You can configure your project and preferred regions and zones in `gcloud` so
 its invocation becomes more convenient.
@@ -138,7 +144,10 @@ We can use a single command to easily:
 - route traffic to the new endpoint
 
 ```bash
-gcloud run deploy jokes --source .
+cd terraform
+terraform init
+terraform apply
+gcloud run deploy build-your-ai-agent --source .
 ```
 
 The command requires additional information and hence switches to an interactive
@@ -157,7 +166,7 @@ Next, let's use `gcloud` to retrieve the auto-generated service URL and then
 `curl` it:
 
 ```bash
-curl $(gcloud run services describe jokes --format 'value(status.url)')
+curl $(gcloud run services describe build-your-ai-agent --format 'value(status.url)')
 ```
 
 Cloud Run services consist of one or more revisions. Whenever you update your
@@ -194,22 +203,6 @@ need to use the CLI.
 
 Take a moment and familiarize yourself with the wizard. You can also use this
 wizard to build and deploy directly to Cloud Run.
-
-## Scaling your app
-
-Cloud Run automatically scales your application based on how many web requests
-are coming in via the HTTPS endpoint. Cloud Run's horizontal auto-scaler is
-extremely fast and can launch 100s of new instances in seconds.
-
-Let's put some load on our newly created service and learn about scaling while
-we wait. We'll start by pushing 50.000 requests using `hey`:
-
-```bash
-hey -n 50000 $(gcloud run services describe jokes --format 'value(status.url)')
-```
-
-In order to build modern, cloud-first applications that scale well horizontally,
-we need to watch out for some design considerations.
 
 **Applications should be engineered to boot quickly.** Cloud Run can start your
 containers very quickly, but it is your responsibility to bring up a web server
@@ -271,6 +264,8 @@ This completes Module 1. You can now wait for the live session to resume or
 continue by yourself and on-demand.
 
 ## Module 2: Building and deploying container images with Cloud Build
+
+## Module 3: Building and deploying container images with Cloud Build
 
 ![Tutorial header image](https://raw.githubusercontent.com/NucleusEngineering/serverless/main/.images/build.jpg)
 
@@ -561,455 +556,6 @@ REGION="$(gcloud config get-value run/region)"
 gcloud builds submit \
   --substitutions _ARTIFACT_REGION=${LOCATION},_RUN_REGION=${REGION}
 ```
-
-## Setting up an automatic source triggers from GitHub
-
-Now that we have successfully created a full build definition on Cloud Build for
-a simple yet very useful CI/CD pipeline, let's have a look at creating automatic
-build triggers that execute the pipeline whenever code gets updated on a remote
-Git repository. In order to put everything in place, we'll now look at how to
-authenticate with GitHub, fork the code into a new repository, authorize GitHub
-to connect with Cloud Build and create an automatic build trigger on Cloud
-Build.
-
-<walkthrough-info-message>This part of the tutorial is **optional**, as it
-requires you to have a GitHub account. If you don't have one you can
-[register a new one](https://github.com/signup).</walkthrough-info-message>
-
-### Authenticating with GitHub
-
-First, let's authenticate using `gh`, GitHub's CLI, which comes pre-installed on
-Cloud Shell. In your terminal begin the authentication handshake and complete
-the CLI wizard.
-
-We'd like to connect in the following matter:
-
-- Connect to `github.com`
-- Use HTTPS for authentication
-- Configure `git` to use GitHub credentials
-
-Begin the authentication exchange by running the following:
-
-```bash
-gh auth login
-```
-
-Copy the authentication code, navigate to
-[GitHub's device authentication page](https://github.com/login/device), paste
-the token and authorize the application.
-
-Once authentication is complete, you should be able to test access to GitHub by
-listing all of your repositories, like so:
-
-```bash
-gh repo list
-```
-
-### Creating a fork of the upstream repo
-
-Next, we'll create a fork of the repository we are currently working with, so
-that we have a separate, remote repository that we can push changes to. Create
-the fork by running the following:
-
-```bash
-gh repo fork
-```
-
-This will create a fork of the upstream repository from
-`github.com/nucleusengineering/serverless` and place it at
-`github.com/YOUR_GITHUB_HANDLE/serverless`. Additionally, the command
-automatically reconfigures the remotes of the local repository clone. Take a
-look the the configured remotes and see how it configured both `upstream` and
-the new `origin` by running the following:
-
-```bash
-git remote -v
-```
-
-<walkthrough-info-message>Make sure that your new `origin` points to the work
-belonging to your own user and push commits to the new `origin` from now
-on.</walkthrough-info-message>
-
-### Setting up the Cloud Build triggers
-
-Next, Cloud Build needs to be configured with a trigger resource. The trigger
-contains everything Cloud Build needs to automatically run new builds whenever
-the remote repository gets updated.
-
-- Navigate to the
-  [Cloud Build triggers section of the Google Cloud Console](https://console.cloud.google.com/cloud-build/triggers)
-  and click on 'Connect Repository'.
-- Follow the wizard on the right to connect to github.com, authenticate Google's
-  GitHub app.
-- Filter repositories based on your user name.
-- Find the forked repository called 'serverless'.
-- Tick the box to accept the policy and connect your repository.
-
-Once completed you should see a connection confirmation message displayed. Now
-it's time to create the trigger.
-
-- Hit 'Create Trigger' and create a new trigger.
-- In the wizard, specify that the trigger should read configuration from the
-  provided `./cloudbuild.yaml` and **add all the substitutions** you used
-  previously to trigger your build.
-
-<walkthrough-info-message>When using the "Autodetect" configuration option,
-there is no possibility to add substitution variables through the UI. So make
-sure to specify the "Cloud Build configuration file (yaml or json)" option
-explicitly, and then continue to fill in the substitution
-variables.</walkthrough-info-message>
-
-### Pushing some changes
-
-We should now have everything in place to automatically trigger a new build
-whenever changes are pushed to `main` on the remote repository fork.
-
-If you haven't done so already, you will need to configure git on your Cloud
-Shell. To do so, run the following and configure your email and name, so git
-know who you are.
-
-```bash
-git config --global user.email "you@example.com"
-git config --global user.name "Your Name"
-```
-
-Use git to add all the changes to the index and create a commit like this:
-
-```bash
-git add Dockerfile
-git add cloudbuild.yaml
-git commit -m 'add build config'
-```
-
-Finally, push the commit to the remote repository:
-
-```bash
-git push origin main
-```
-
-Changes should automatically be detected and trigger a new Cloud Build task.
-Navigate to the
-[Cloud Build dashboard](https://console.cloud.google.com/cloud-build/dashboard)
-and explore the running build.
-
-## Summary
-
-You now know how Cloud Build can help you automate integrating your artifacts.
-
-<walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
-
-This completes Module 2. You can now wait for the live session to resume or
-continue by yourself and on-demand.
-
-## Module 3: Extend your code to call Cloud APIs
-
-![Tutorial header image](https://raw.githubusercontent.com/NucleusEngineering/serverless/main/.images/apis.jpg)
-
-In this tutorial we'll learn how to extend the existing code to call Cloud APIs
-directly. Currently, the deployed application uses a library which contains a
-static set of jokes. Whenever the library is used it randomly selects a joke and
-returns it. After a while we will surely start to see the same jokes again and
-the only way to see new jokes is when a human would actually implement them in
-the library.
-
-Luckily, there is a thing called _generative AI_ now. Google Cloud Vertex AI
-contains the Google-built, pre-trained, Gemini 1.5 Flash model which is a
-general-purpose, multimodal, speed-optimized, generative large language model
-(LLM) that can be queried with text prompts in natural language to generate all
-sorts of outputs, including text. In this tutorial we'll implement the
-`model:predict` endpoint of Vertex AI to execute this model in order to add new
-dad jokes in a generative manner.
-
-<!-- TODO: include on-demand clip for module 3 -->
-
-Additionally, we'll learn a little bit about custom service accounts, IAM
-permissions and how to use the principle of least privilege to secure our
-services on Cloud Run.
-
-<walkthrough-tutorial-difficulty difficulty="3"></walkthrough-tutorial-difficulty>
-
-Estimated time:
-<walkthrough-tutorial-duration duration="45"></walkthrough-tutorial-duration>
-
-To get started, click **Start**.
-
-## Project setup
-
-First, let's make sure we got the correct project selected. Go ahead and select
-the provided project ID.
-
-<walkthrough-project-setup billing="true"></walkthrough-project-setup>
-
-Run the following to make sure all required APIs are enabled. Note that
-`aiplatform.googleapis.com` is added.
-
-<walkthrough-enable-apis apis="cloudbuild.googleapis.com,
-run.googleapis.com,aiplatform.googleapis.com,
-artifactregistry.googleapis.com"> </walkthrough-enable-apis>
-
-## About the different ways to call Google APIs
-
-In the cloud we often need to implement API calls to interact with other
-services. Platforms like Google Cloud are a large collection of APIs; if we
-learn how to use them we can use the entire wealth of Google Cloud's
-functionality in our applications and build almost anything!
-
-There are typically three different ways to interact with Google APIs
-programmatically and we should choose them in the following order:
-
-1. **Cloud Client Libraries**: These are the recommended options. Cloud Client
-   Libraries are SDK that you can use in a language-native, idiomatic style.
-   They give you a high-level interface to the most important operation and
-   allow you to quickly and comfortably get the job done. An example in the Go
-   ecosystem would be the `cloud.google.com/go/storage` package, which
-   implements the most commonly used operations of Google Cloud Storage. Have a
-   look at the
-   [documentation of the package](https://pkg.go.dev/cloud.google.com/go/storage)
-   and see how it respects and implements native language concepts like the
-   `io.Writer` interface of the Go programming language.
-
-2. **Google API Client Libraries**: Should no Cloud Client Library be available
-   for what you are trying to accomplish you can fall back to using a Google API
-   Client Library. These libraries are auto-generated and should be available
-   for almost all Google APIs.
-
-3. **Direct Implementation**: You can always choose to implement exposed APIs
-   directly with your own client code. While most APIs are available as
-   traditional RESTful services communicating JSON-serialized data, some APIs
-   also implement [gRPC](https://grpc.io).
-
-Have a look at
-[this page of the Google Cloud documentation](https://cloud.google.com/apis/docs/client-libraries-explained)
-to learn more about the differences between the available libraries.
-
-Let's configure `gcloud` for the project and default regions:
-
-```bash
-gcloud config set project <walkthrough-project-id/>
-gcloud config set run/region europe-north1
-gcloud config set artifacts/location europe-north1
-```
-
-Okay, all set!
-
-## Extending the code
-
-In order to be able to replace the statically created jokes with jokes generated
-by Vertex AI, the code needs to be extended in the following ways:
-
-1. **Create a client to execute the remote model**: The first step is to safely
-   instantiate the correct client type, that we are going to use later on to
-   interact with the API. This type holds all the configuration for endpoints
-   and handles authentication, too. Have a look at the
-   [documentation of the package](https://pkg.go.dev/cloud.google.com/go/vertexai/genai#NewClient)
-   for `genai.Client`. The client will automatically look for credentials
-   according to the rules of
-   [Google's Application Default Credentials scheme](https://cloud.google.com/docs/authentication/application-default-credentials).
-
-2. **Execute the call against the API to run the model prediction**: Next, we'll
-   use the previously instantiated client to actually invoke the remote model
-   with `[]genai.Parts` containing the prompt and execute the API by calling
-   `genai.GenerateContent`
-   [as described in the docs](https://pkg.go.dev/cloud.google.com/go/vertexai/genai#GenerativeModel.GenerateContent).
-   Take a look at the
-   [documentation of the package](https://pkg.go.dev/cloud.google.com/go/vertexai/genai#GenerativeModel)
-   to see what else can be done with `genai.GenerativeModel`.
-
-Now, it's time to make some changes to the code.
-
-<walkthrough-info-message>You may now attempt to **implement the above code
-changes yourself** for which you should have a good understanding of the Go
-programming language. If you choose to do so, you should stop reading now and
-give it your best shot.</walkthrough-info-message>
-
-Alternatively, you can **use a prebuilt library** to accomplish the same. If
-that's more your cup of tea, go hit 'Next' and proceed to the next section.
-
-Have a look at the
-[Vertex AI Model Garden](https://console.cloud.google.com/vertex-ai/publishers/google/model-garden/gemini-1.5-flash-preview-0514)
-to learn more about Gemini Flash and other available models.
-
-## Using a library to call the Gemini Flash model
-
-To get started, first have a look at the Go module
-`github.com/helloworlddan/tortuneai`. The module provides the package
-`github.com/helloworlddan/tortuneai/tortuneai` which implements the Cloud Client
-Library for Vertex AI to call the _Gemini Flash_ model.
-[Read through the code](https://github.com/helloworlddan/tortuneai/blob/main/tortuneai/tortuneai.go)
-of `tortuneai.HitMe` and see how it implements the aforementioned steps to
-interact with the API.
-
-In order to use the package we need to first get the module like this:
-
-```bash
-go get github.com/helloworlddan/tortuneai@v0.0.4
-```
-
-Once that is completed, we can update
-<walkthrough-editor-open-file filePath="cloudshell_open/serverless/main.go"> the
-main application source file main.go </walkthrough-editor-open-file> and change
-all references to the previously used package `tortune` with `tortuneai`.
-
-Notice that the signature for `tortuneai.HitMe()` is different from the previous
-`tortune.HitMe()`. While the original function did not require any parameters,
-you are required to pass two `string` values into the new one: One with an
-actual text prompt for the Gemini Flash model and one with your Google Cloud
-project ID. Additionally, the function now returns multiple return values: a
-`string` containing the response from the API and an `error`. If everything goes
-well, the error will be `nil`, if not it will contain information about what
-went wrong.
-
-Here is a possible implementation:
-
-```golang
-joke, err := tortuneai.HitMe("", "<walkthrough-project-id/>")
-if err != nil {
-    fmt.Fprintf(w, "error: %v\n", err)
-    return
-}
-fmt.Fprint(w, joke)
-```
-
-Update the implementation of `http.HandleFunc()` in
-<walkthrough-editor-open-file filePath="cloudshell_open/serverless/main.go"> the
-main application source file main.go </walkthrough-editor-open-file> with the
-code snippet.
-
-Let's check if the modified code compiles by running it:
-
-```bash
-go run main.go
-```
-
-This recompiles and starts the web server. Let's check the application with the
-Web Preview <walkthrough-web-preview-icon></walkthrough-web-preview-icon> at the
-top right in Cloud Shell and see if we can successfully interact with the Gemini
-Flash model.
-
-If you are satisfied you can focus the terminal again and terminate the web
-server with `Ctrl-C`.
-
-It's good practice to clean up old dependencies from the `go.mod` file. You can
-do this automatically my running:
-
-```bash
-go mod tidy
-```
-
-If you like you can stay at this point for a moment, change the prompt (the
-first argument to `tortuneai.HitMe()`), re-run with `go run main.go` and use the
-Web Preview <walkthrough-web-preview-icon></walkthrough-web-preview-icon> to
-have a look at how the change in prompt affected the model's output.
-
-## Creating a custom service account for the Cloud Run service
-
-Good! The code changes we made seem to work, now it's time to deploy the changes
-to the cloud.
-
-When running the code from Cloud Shell, the underlying implementation used
-Google
-[Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/provide-credentials-adc)
-to find credentials. In this case it was using the credentials of the Cloud
-Shell user identity (yours).
-
-Cloud Run can be configured to use a service account, which exposes credentials
-to the code running in your container. Your application can then make
-authenticated requests against Google APIs.
-
-Per default, Cloud Run uses the
-[Compute Engine default service account](https://cloud.google.com/compute/docs/access/service-accounts#default_service_account).
-This service account has wide permissions and should generally be replaced by a
-service account with the least amount of permissions required to do whatever
-your service needs to do. The Compute Engine default service has a lot of
-permissions, but it does not have the required permissions to execute
-[the API call](https://cloud.google.com/vertex-ai/docs/reference/rest/v1beta1/projects.locations.publishers.models/predict).
-
-When it comes to identifying the correct IAM roles to attach to identities
-[this reference page on the IAM documentation](https://cloud.google.com/iam/docs/understanding-roles)
-is an extremely useful resource. On the page you can check the section for
-[Vertex AI roles](https://cloud.google.com/iam/docs/understanding-roles#vertex-ai-roles)
-and learn that
-[_Vertex AI User_](https://cloud.google.com/iam/docs/understanding-roles#aiplatform.user)
-(`roles/aiplatform.user`) is a suitable role for our Cloud Run service, because
-this role contains the permission `aiplatform.endpoints.predict`. If you are
-unsure which permission you require, you can always check the
-[API reference for the required operation](https://cloud.google.com/vertex-ai/docs/reference/rest/v1beta1/projects.locations.publishers.models/predict).
-
-<walkthrough-info-message>**Note**: You could argue that the role _Vertex AI
-User_ has too many permissions for the Cloud Run service and a
-security-conscious person would probably agree with you. If you really wanted to
-make sure that the Cloud Run service only had least amount of privilege to
-execute the absolutely required permissions, you would have to create a
-[IAM custom role](https://cloud.google.com/iam/docs/creating-custom-roles) to
-achieve this.</walkthrough-info-message>
-
-For now, we'll stick with _Vertex AI User_.
-
-Next, let's create a brand new customer IAM service account like this:
-
-```bash
-gcloud iam service-accounts create tortune
-```
-
-We can bind the identified role to the various resource levels. For the sake of
-simplicity, let's attach it at the project level by executing:
-
-```bash
-PROJECT=$(gcloud config get-value project)
-ACCOUNT=tortune@${PROJECT}.iam.gserviceaccount.com
-gcloud projects add-iam-policy-binding ${PROJECT} \
-    --member serviceAccount:${ACCOUNT} \
-    --role "roles/aiplatform.user"
-```
-
-The service account will now be able to use all the permissions in _Vertex AI
-User_ on all resources in our current project. Finally, we need to deploy a new
-Cloud Run revision by updating the service configuration so that our Cloud Run
-service will use the newly-created service account:
-
-```bash
-PROJECT=$(gcloud config get-value project)
-ACCOUNT=tortune@${PROJECT}.iam.gserviceaccount.com
-gcloud run services update jokes \
-    --service-account ${ACCOUNT}
-```
-
-Now, that all IAM resources and configurations are in place, we can trigger a
-new Cloud Build execution to deploy changes in a CI/CD fashion, like this:
-
-```bash
-LOCATION="$(gcloud config get-value artifacts/location)"
-REGION="$(gcloud config get-value run/region)"
-gcloud builds submit \
-  --substitutions _ARTIFACT_REGION=${LOCATION},_RUN_REGION=${REGION}
-```
-
-If you have previously configured Github, you can achieve the same by committing
-and pushing your changes, like this:
-
-```bash
-git add .
-git commit -m 'upgrade to Gemini Flash for generative jokes'
-git push origin main
-```
-
-Navigate to
-[Cloud Build's dashboard](https://console.cloud.google.com/cloud-build/dashboard)
-and click into the active build to monitor it's progress.
-
-Once completed, you should be able to get fresh generated content by cURLing the
-endpoint of the Cloud Run Service:
-
-```bash
-curl $(gcloud run services describe jokes --format 'value(status.url)')
-```
-
-Amazing!
-
-## Summary
-
-You now know how to call Google APIs directly from your code and understand how
-to secure your services with least-privilege service accounts.
 
 <walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
 

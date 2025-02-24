@@ -21,6 +21,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from vertexai.generative_models import FunctionDeclaration
 from vertexai.preview.vision_models import ImageGenerationModel
 from common.function_calling import extract_text
+from models import model, user
 
 class User:
     def __init__(self, db, config_service, rag_model):
@@ -92,19 +93,30 @@ class User:
 
         fc_show_my_model = FunctionDeclaration(
             name="fc_show_my_model",
-            description="Show user's model on the screen.",
+            description="Show user's model / character on the screen.",
+            parameters={
+                "type": "object",
+                "properties": {},            
+            }
+        )
+        
+        fc_show_my_avatar = FunctionDeclaration(
+            name="fc_show_my_avatar",
+            description="Show user's current avatar.",
             parameters={
                 "type": "object",
                 "properties": {},            
             }
         )
 
+
         return [
             fc_generate_avatar,
             fc_rag_retrieval,
             fc_save_model_color,
             fc_revert_model_color,
-            fc_show_my_model
+            fc_show_my_model,
+            fc_show_my_avatar
         ]
     
     def fc_save_model_color(self, user_id, color):
@@ -221,8 +233,9 @@ class User:
 
         return '''Reply something like "There you go."''', '''
             <div>
-                <img style="width: 50%; border-radius: 10px;" src="''' + cdn_url + '?rand=' + str(random.randint(0, 1000000)) + '''">
-            </div>'''
+                <br>
+                <img class="avatar" src="%s?rand=%s">
+            </div>''' % (cdn_url, str(random.randint(0, 1000000)))
 
     def fc_rag_retrieval(self, user_id, question_passthrough):
         """
@@ -236,11 +249,19 @@ class User:
             The RAG model's response as a string.
         """
         response = self.rag_model.generate_content(question_passthrough)
-        return extract_text(response)
+        return extract_text(response), ''
 
     def fc_show_my_model(self, user_id):
-        logging.info(f"Showing user's ({user_id}) Character")
+        logging.info(f"Showing user's ({user_id}) character")
         return '''Reply something like "there you go"''', '''<script>$("#modelWindow").show();</script>'''
+
+    def fc_show_my_avatar(self, user_id):
+        logging.info(f"Showing user's ({user_id}) avatar")
+        return '''Reply something like "There you go."''', '''
+            <div>
+                <br>
+                <img class="avatar" src="/static/avatars/%s.png?rand=%s">
+            </div>''' % (user_id, str(random.randint(0, 1000000)))
 
     def get_model(self, user_id):
         """
@@ -265,11 +286,13 @@ class User:
                 return None
 
             # In our current setup, there should only be one matching model
-            model_doc = results[0]
-            model_data = model_doc.to_dict()
+            # model_doc = results[0]
+            # model_data = model_doc.to_dict()
             
+            return model.Model.from_dict(results[0].to_dict())
+
             # we return the full object since it is now already a dict
-            return model_data
+            # return model_data
 
         except Exception as e:
             logging.error("%s, %s", traceback.format_exc(), e)

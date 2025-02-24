@@ -193,12 +193,8 @@ def version():
 def get_model():
     model = user_service.get_model(FAKE_USER_ID)
 
-    if('color' in model) :
-        response = jsonify({
-            "model": model['model'],
-            "color": model['color'],
-            "original_material": model['original_material'],
-        })
+    if(model is not None) :
+        response = jsonify(model.to_dict())
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response
         

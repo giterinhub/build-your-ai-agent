@@ -14,41 +14,35 @@
 
 import json
 
-class Ticket:
-    def __init__(self, ticket_id, user_id, ticket_type, message, created_at):
-        self.ticket_id = ticket_id
+class Model:
+    def __init__(self, user_id, original_material, model, color):
+        self.original_material = original_material
+        self.model = model
+        self.color = color
         self.user_id = user_id
-        self.ticket_type = ticket_type
-        self.message = message
-        self.created_at = created_at
 
     def to_dict(self):
         return {
-            "ticket_id": self.ticket_id,
             "user_id": self.user_id,
-            "ticket_type": self.ticket_type,
-            "message": self.message,
-            "created_at": self.created_at,
+            "color": self.color,
+            "model": self.model,
+            "original_material": self.original_material
         }
     
     @classmethod
     def from_dict(cls, data):
         return cls(
-            data["ticket_id"],
             data["user_id"],
-            data["ticket_type"],
-            data["message"],
-            data["created_at"],
+            data["original_material"],
+            data["model"],
+            data["color"]
         )
     
     def __repr__(self):
         return json.dumps(self.to_dict())
-    
+        
     def __eq__(self, other):
-        return (
-            self.ticket_id == other.ticket_id
-        )
+        return self.__eq__(other)    
     
     def __ne__(self, other):
-        return not self.__eq__(other)
-    
+        return not self.__eq__(other)    

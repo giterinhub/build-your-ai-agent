@@ -20,6 +20,8 @@ body {
     padding: 0 25px;
     background-color: #f4f4f4;
     min-height: 100vh;
+    background-image: url('/static/images/background.png');
+    background-size: cover;
 }
 
 h1 {
@@ -311,4 +313,9 @@ table tbody tr.active-row {
     ul li img {
         max-height: 24px;
     }       
+}
+
+.avatar {
+    width: 50%; 
+    border-radius: 10px;
 }
