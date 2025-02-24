@@ -87,13 +87,10 @@ gcloud config set run/region us-central1
 gcloud config set artifacts/location us-central1
 gcloud firestore databases create --location us-central1
 
-gcloud storage buckets create gs://build-you-ai-agent-$(gcloud projects list --filter PROJECT_ID=<walkthrough-project-id/> --format="value(P
-ROJECT_NUMBER)") --location=us-central1
-gsutil cp -r data/* gs://build-you-ai-agent-$(gcloud projects list --filter PROJECT_ID=<walkthrough-project-id/> --format="value(P
-ROJECT_NUMBER)")
+gcloud storage buckets create gs://build-you-ai-agent-$(gcloud projects list --filter PROJECT_ID=<walkthrough-project-id/> --format="value(PROJECT_NUMBER)") --location=us-central1
+gsutil cp -r data/* gs://build-you-ai-agent-$(gcloud projects list --filter PROJECT_ID=<walkthrough-project-id/> --format="value(PROJECT_NUMBER)")
 
-gcloud firestore import gs://build-you-ai-agent-$(gcloud projects list --filter PROJECT_ID=<walkthrough-project-id/> --format="value(P
-ROJECT_NUMBER)")/firestore-data --database="(default)"
+gcloud firestore import gs://build-you-ai-agent-$(gcloud projects list --filter PROJECT_ID=<walkthrough-project-id/> --format="value(PROJECT_NUMBER)")/firestore-data --database="(default)"
 ```
 
 
