@@ -27,7 +27,8 @@ class RAG:
 
         for c in corpora:
             if c.display_name == corpus_name:
-                rag_corpus = rag.get_corpus(c.name)
+                rag.delete_corpus(c.name) # Comment this to stop re-creating RAG corpora every time
+                # rag_corpus = rag.get_corpus(c.name) # Uncomment this once you are happy with your setup
 
         if rag_corpus is None:
             rag_corpus = rag.create_corpus(display_name=corpus_name)

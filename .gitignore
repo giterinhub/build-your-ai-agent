@@ -207,5 +207,6 @@ terraform.rc
 
 static/audio_output/*
 static/avatars/*
+!static/avatars/.gitignore
 static/textures/*
 

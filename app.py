@@ -53,7 +53,6 @@ logging.getLogger().setLevel(logging.DEBUG)
 vertexai.init(project=PROJECT_ID, location=REGION)
 
 config = configuration.Config.get_instance()
-rag = rag.RAG(config)
 
 def init_model():
     retail_tool = Tool(
@@ -70,8 +69,14 @@ def init_model():
     return model
 
 def init_rag_model(): 
+    if(config.get_property('rag', 'use_rag') == "false"):
+        print("Not using RAG since it's disabled in config.ini")
+        return init_model() # Fallback to regular model
+    
+    _rag = rag.RAG(config)    
+
     rag_retrieval_tool = Tool.from_retrieval(
-        rag.get_rag_retrieval()
+        _rag.get_rag_retrieval()
     )
     # Create a gemini-pro model instance
     model = GenerativeModel(

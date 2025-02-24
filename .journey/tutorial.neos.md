@@ -67,13 +67,32 @@ the provided project ID.
 
 <walkthrough-enable-apis apis="cloudbuild.googleapis.com,
 run.googleapis.com,
-vertexai.googleapis.com,
+aiplatform.googleapis.com,
 firestore.googleapis.com,
-artifactregistry.googleapis.com"> </walkthrough-enable-apis>
+artifactregistry.googleapis.com,
+cloudresourcemanager.googleapis.com"></walkthrough-enable-apis>
 
 You can use the builtin
 <walkthrough-editor-spotlight spotlightId="menu-terminal-new-terminal"> Cloud
 Shell Terminal </walkthrough-editor-spotlight> to run the gcloud command.
+
+## Project preparation
+
+Before we beging, there are some things we need to prepare, such as hydrate Firestore and upload 
+some dummy documents for RAG.
+
+```bash
+gcloud config set project <walkthrough-project-id/>
+gcloud config set run/region us-central1
+gcloud config set artifacts/location us-central1
+gcloud firestore databases create --location us-central1
+
+gcloud storage buckets create gs://build-you-ai-agent-<walkthrough-project-number/> --location=us-central1
+gsutil cp -r data/* gs://build-you-ai-agent-<walkthrough-project-number/>
+
+gcloud firestore import gs://build-you-ai-agent-<walkthrough-project-number/>/firestore-data --database="(default)"
+```
+
 
 ## Exploring the code
 
@@ -85,20 +104,16 @@ Once you've understood what's going on, you can try to run that app directly in
 Cloud Shell, running the following in the terminal:
 
 ```bash
-  gcloud config set project <walkthrough-project-id/>
-  gcloud config set run/region us-central1
-  gcloud config set artifacts/location us-central1
+pip install -r requirements.txt
+export PROJECT_ID=<walkthrough-project-id/>
+export REGION=us-central1
 
-  export PROJECT_ID=<walkthrough-project-id/>
-  export REGION=us-central1
-  gcloud firestore import gs://ai-agent-data-bucket/firestore-schema --database="(default)"
-  python3 install -r requirements.txt
-  python3 -m flask run --host=0.0.0.0 --port=8080 --debugger --reload
-
+python -m flask run --host=0.0.0.0 --port=8080 --debugger --reload
 ```
 
-This downloads dependencies, imports initial data to firestore and starts the web server. You can now use Cloud Shell Web Preview on port 8080 to check out your application. You can find
-the Web Preview <walkthrough-web-preview-icon></walkthrough-web-preview-icon> at
+This downloads dependencies, imports initial data to firestore and starts the web server. 
+You can now use Cloud Shell Web Preview on port 8080 to check out your application. 
+You can find the Web Preview <walkthrough-web-preview-icon></walkthrough-web-preview-icon> at
 the top right in Cloud Shell. If you don't see a response from the web server,
 try waiting a little longer for the Go compiler to build and start your server.
 
@@ -126,8 +141,8 @@ its invocation becomes more convenient.
 
 ```bash
 gcloud config set project <walkthrough-project-id/>
-gcloud config set run/region europe-north1
-gcloud config set artifacts/location europe-north1
+gcloud config set run/region us-central1
+gcloud config set artifacts/location us-central1
 ```
 
 Note that our code is not yet built or containerized, but Cloud Run requires
@@ -146,6 +161,7 @@ We can use a single command to easily:
 ```bash
 cd terraform
 terraform init
+terraform plan
 terraform apply
 gcloud run deploy build-your-ai-agent --source .
 ```

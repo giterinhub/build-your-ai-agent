@@ -26,7 +26,5 @@ RUN /venv/bin/pip install --disable-pip-version-check -r /app/requirements.txt
 
 WORKDIR /app
 
-RUN mkdir -p /app/static/avatars
-
 ENTRYPOINT ["./entrypoint.sh"]
 
