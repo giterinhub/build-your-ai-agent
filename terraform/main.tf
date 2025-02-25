@@ -41,7 +41,6 @@ resource "google_cloud_run_v2_service" "demo_service" {
   name     = var.service_name
   location = var.region
   ingress = "INGRESS_TRAFFIC_ALL"
-  depends_on = [google_vpc_access_connector.vpc_connector]
 
   template {
     containers {
@@ -60,11 +59,6 @@ resource "google_cloud_run_v2_service" "demo_service" {
         }
     }
     service_account = google_service_account.service_account.email
-    
-    vpc_access {
-        connector = google_vpc_access_connector.vpc_connector.id
-        egress = "ALL_TRAFFIC"
-    }      
   }
 }
 
@@ -74,9 +68,16 @@ resource "google_service_account" "service_account" {
   account_id   = "${var.service_name}-sa"
 }
 
+# Permissions
 resource "google_project_iam_member" "vertex_ai_user" {
   project = var.project_id
   role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.service_account.email}"
+}
+
+resource "google_project_iam_member" "firestore_user" {
+  project = var.project_id
+  role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.service_account.email}"
 }
 

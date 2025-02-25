@@ -208,5 +208,6 @@ terraform.rc
 static/audio_output/*
 static/avatars/*
 !static/avatars/.gitignore
+!static/avatars/7608dc3f-d239-405c-a097-b152ab38a354.png
 static/textures/*
 

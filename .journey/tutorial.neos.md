@@ -293,6 +293,11 @@ continue by yourself and on-demand.
 
 ## Module 2: 
 
+## Summary
+
+Now you should feel comfortable using our Vertex AI SDK for Python. You should be able
+to create new functions that are invoked with Gemini.
+
 <walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
 
 This completes Module 2. You can now wait for the live session to resume or
@@ -300,17 +305,29 @@ continue by yourself and on-demand.
 
 ## Module 3: 
 
-This completes Module 3. You can now wait for the live session to resume or
-continue by yourself and on-demand.
+## Summary
+
+Now you are fluent in using our RAG Engine API and should be able to incorporate data from
+external knowledge sources, such as documents and databases.
 
 <walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
 
+This completes Module 3. You can now wait for the live session to resume or
+continue by yourself and on-demand.
+
 ## Module 4: 
+
+## Summary
+
+Hopefully you were successful in calling the external API provided to you and create a neat
+3D model for your imaginary character!
+
+<walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
 
 This completes Module 4. You can now wait for the live session to resume or
 continue by yourself and on-demand.
 
-<walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
+---
 
 You have completed the tutorial, well done! Please take a moment and let us know
 what you think.
