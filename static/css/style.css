@@ -319,3 +319,11 @@ table tbody tr.active-row {
     width: 50%; 
     border-radius: 10px;
 }
+
+#flatcatisflat {
+    position: absolute;
+    width: 128px;
+    z-index: 999;
+    top: 10px;
+    right: 10px;
+}

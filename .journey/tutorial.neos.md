@@ -30,14 +30,18 @@ to production in matter of minutes.
 
 The tutorial is split into **3 modules**:
 
-**Module 1** will explore Gemini's Function Calling feature. We will be adding new
+**Module 1** will explore Cloud Run, a compute platform for container workloads,
+which you can use to easily run your services in a scalable, secure,
+cost-effective and production-grade environment in a matter of minutes.
+
+**Module 2** will explore Gemini's Function Calling feature. We will add new
  methods to fetch data from Firestore and manipulate your character 3D models a little bit.
 
-**Module 2** will show  you how to work with RAG (Retrieval Augmented Generation). 
+**Module 3** will show you how to work with RAG (Retrieval Augmented Generation). 
 in Vertex AI with help of our Python SDK.
 
-**Module 3** will get you familiar with Cloud Build, a fully-managed
-container-based build system. 
+**Module 4** will let you showcase what you learned and make the Meow AI Agent create 
+a 3D model based on your avatar! 
 
 Hope you're not afraid to get your hands dirty. Make sure get a beverage and
 some snacks of your choice, strap in and hit 'Start'.
@@ -133,8 +137,8 @@ images must be in Docker or OCI format and will be run on Linux x86_64.
 Cloud Run is available in all Google Cloud Platform regions globally. If you are
 unsure where to deploy to, you can use the
 [Region Picker](https://cloud.withgoogle.com/region-picker/) tool to find the
-most suitable one. However make sure you select the region where Gemini 2.0 and Imagen 3
-are available.
+most suitable one. However make sure you select the region where Gemini 2.0, Imagen 3
+and RAG Engine API are available, hence for this demo we suggest using us-central1.
 
 You can configure your project and preferred regions and zones in `gcloud` so
 its invocation becomes more convenient.
@@ -145,9 +149,21 @@ gcloud config set run/region us-central1
 gcloud config set artifacts/location us-central1
 ```
 
-Note that our code is not yet built or containerized, but Cloud Run requires
-that. The `gcloud` CLI has a convenient shortcut for deploying Cloud Run which
-quickly allows us to do so.
+First we need to setup all the bits and pieces for our service to work. For that we
+use terraform that has already been configured to create a Cloud Run dummy service,
+Artifact Registry and all the necessary permissions. Run the following commands to 
+do just that:
+
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
+
+Now with that out of the way, we need to focus on our code that is not yet built 
+nor containerized, but Cloud Run requires that. The `gcloud` CLI has a convenient 
+shortcut for deploying Cloud Run which quickly allows us to do so.
 
 We can use a single command to easily:
 
@@ -159,10 +175,6 @@ We can use a single command to easily:
 - route traffic to the new endpoint
 
 ```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
 gcloud run deploy build-your-ai-agent --source .
 ```
 
@@ -279,303 +291,28 @@ Cloud Run.
 This completes Module 1. You can now wait for the live session to resume or
 continue by yourself and on-demand.
 
-## Module 2: Building and deploying container images with Cloud Build
-
-## Module 3: Building and deploying container images with Cloud Build
-
-![Tutorial header image](https://raw.githubusercontent.com/NucleusEngineering/serverless/main/.images/build.jpg)
-
-In this tutorial we'll learn how to use Cloud Build, the fully-managed CI system
-on Google Cloud. Instead of using Build Packs, we'll be using Dockerfiles and
-Cloud Builds own declarative configuration to leverage higher flexibility and
-control over how we build our images. Finally, we'll use Cloud Build to also
-deploy to Cloud Run, so we can continuously deliver updates to our Cloud Run
-services.
-
-[Overview on Cloud Build](https://raw.githubusercontent.com/NucleusEngineering/serverless/main/.images/overview-build.png)
-
-<walkthrough-tutorial-difficulty difficulty="3"></walkthrough-tutorial-difficulty>
-
-Estimated time:
-<walkthrough-tutorial-duration duration="35"></walkthrough-tutorial-duration>
-
-To get started, click **Start**.
-
-## Project setup
-
-First, let's make sure we got the correct project selected. Go ahead and select
-the provided project ID.
-
-<walkthrough-project-setup billing="true"></walkthrough-project-setup>
-
-<walkthrough-enable-apis apis="cloudbuild.googleapis.com,
-run.googleapis.com,
-artifactregistry.googleapis.com"> </walkthrough-enable-apis>
-
-## Cloud Build
-
-Cloud Build is a fully-managed CI system in Google Cloud. It is a general
-purpose compute platform that allows you to execute all sorts of batch
-workflows. However, it really excels at building code and creating container
-images.
-
-You don't need to provision anything to get started with using Cloud Build, it's
-fully-managed: simply enable the API and submit your jobs. Cloud Build manages
-all the required infrastructure for you. Per default, Cloud Build schedules
-build jobs on shared infrastructure, but it can be configured to run on a
-[dedicated worker pool](https://cloud.google.com/build/docs/private-pools/private-pools-overview)
-that is not shared with other users.
-
-In the previous section of our journey we saw how to use build and deploy
-directly to Cloud Run from source code using the magic of Build Packs. Actually,
-this deployment via `gcloud run deploy` already leverages Cloud Build in the
-background, as you can see here in the
-[Cloud Build History](https://console.cloud.google.com/cloud-build/builds;region=global).
-These are great to get you started quickly. Almost as quickly, you will realize
-that you need more control over your build process, so you will start writing
-your own Dockerfiles. Let's see how that works with Cloud Build.
-
-In order to get started let's set up some configuration:
-
-```bash
-gcloud config set project <walkthrough-project-id/>
-gcloud config set run/region europe-north1
-gcloud config set artifacts/location europe-north1
-```
-
-We are building some container images in this tutorial, so let's set up a
-dedicated Docker image registry using Google Cloud Artifact Registry and
-remember it in `gcloud config`:
-
-```bash
-gcloud artifacts repositories create my-repo --repository-format docker
-gcloud config set artifacts/repository my-repo
-```
-
-Great! Let's get started.
-
-## Building with Dockerfiles
-
-Previously, we built our container images by specifying the `--source` flag,
-which will cause Cloud Build to use
-[Google Cloud Buildpacks](https://cloud.google.com/docs/buildpacks/overview) to
-automatically determine the tool chain of our application. It then uses
-templated container build instructions which are based on best practices to
-build and containerize the application.
-
-Sometimes it is required to exert more control over the Docker build process.
-Google Cloud Build also understands Dockerfiles. With Dockerfiles it is possible
-to precisely specify which instructions to execute in order to create the
-container image. Cloud Build typically inspects the build context and looks for
-build instructions in the following order:
-
-1. cloudbuild.yaml: If this file is present, Cloud Build will execute the
-   instructions defined in it. We'll learn about cloudbuild.yaml files later in
-   this tutorial.
-2. Dockerfile: If this file is present, Cloud Build will use it to execute a
-   container build process that is equivalent to running `docker build`.
-   Finally, it will tag and store the resulting image.
-3. Buildpacks: If no explicit build instructions are available, Cloud Build can
-   still be used to integrate by using Google Cloud Buildpacks.
-
-In the <walkthrough-editor-spotlight spotlightId="activity-bar-explorer"> File
-Explorer </walkthrough-editor-spotlight> create a new file called `Dockerfile`
-and place it in the same directory as the Go application. Let's start with a
-simple, single-stage build for Go:
-
-```Dockerfile
-FROM golang:1.22-bookworm
-WORKDIR /app
-COPY go.* ./
-RUN go mod download
-COPY main.go ./
-RUN CGO_ENABLED=0 go build -v -o server
-CMD ["/app/server"]
-```
-
-This Dockerfile:
-
-1. uses Debian bookworm with Golang 1.22 as base image
-2. copies the definition of the Go module and installs all dependencies
-3. copies the sources and builds the Go application
-4. specifies the application binary to run
-
-We can now submit the build context to Cloud Build and use the instructions in
-the Dockerfile to create a new image by running:
-
-```bash
-LOCATION="$(gcloud config get-value artifacts/location)"
-PROJECT="$(gcloud config get-value project)"
-gcloud builds submit . \
-  --tag ${LOCATION}-docker.pkg.dev/${PROJECT}/my-repo/dockerbuild
-```
-
-Next, let's navigate first to the
-[Cloud Build History](https://console.cloud.google.com/cloud-build/builds;region=global)
-to see the build we just started. As soon as that is finished we go to
-[Artifact Registry in the Google cloud Console](https://console.cloud.google.com/artifacts/docker?project=<walkthrough-project-id/>)
-to find the repository and inspect the image.
-
-Huh, it seems like our image is quite big! We can fix this by running a
-[multi-stage Docker build](https://docs.docker.com/build/building/multi-stage/).
-Let's extend the Dockerfile and replace its contents with the following:
-
-```Dockerfile
-FROM golang:1.22-bookworm as builder
-WORKDIR /app
-COPY go.* ./
-RUN go mod download
-COPY main.go ./
-RUN CGO_ENABLED=0 go build -v -o server
-
-FROM gcr.io/distroless/static-debian11
-WORKDIR /app
-COPY --from=builder /app/server /app/server
-CMD ["/app/server"]
-```
-
-Great! We'll keep the first stage as the build stage. Once the statically-linked
-Go binary is built, it is copied to a fresh stage that is based on
-`gcr.io/distroless/static-debian11`. The _distroless_ images are Google-provided
-base images that are very small. That means there is less to store and images
-typically have much smaller attack surfaces and improved start-up time. Let's
-build again:
-
-```bash
-LOCATION="$(gcloud config get-value artifacts/location)"
-PROJECT="$(gcloud config get-value project)"
-gcloud builds submit . \
-  --tag ${LOCATION}-docker.pkg.dev/${PROJECT}/my-repo/dockermultistage
-```
-
-Navigate back to Artifact Registry in the Google Cloud Console and inspect the
-new image `dockermultistage`. The resulting image is much (70x) smaller.
-
-## Building with a cloudbuild.yaml file
-
-Cloud Build will build, tag and store your container image when you submit a
-Dockerfile, but it can do a lot more. You can instruct Cloud Build to execute
-any arbitrary sequence of instructions by specifying and submitting a
-`cloudbuild.yaml` file. When detected in the build context, this file will take
-precedence over any other configuration and will ultimately define what your
-Cloud Build task does.
-
-In a nutshell, you are able to specify a sequence of steps with each step being
-executed in a container. You can specify which image and process to execute for
-every individual step. The steps can collaborate and share data via a shared
-volume that is automatically mounted into the file system at `/workspace`.
-
-Go ahead and create a `cloudbuild.yaml` and place it in the same directory as
-the Dockerfile and the Go application. Add the following contents:
-
-```yaml
-steps:
-  - name: "ubuntu"
-    args:
-      - "echo"
-      - "hi there"
-```
-
-This configuration asks Cloud Build to run a single step: Use the container
-image provided by [ubuntu](https://hub.docker.com/_/ubuntu) and run `echo`.
-
-While this might not be a terribly useful or sophisticated CI pipeline, it is a
-useful illustration to understand how versatile Cloud Build is. Let's run it by
-submitting a new Cloud Build task:
-
-```bash
-gcloud builds submit
-```
-
-OK. Let's modify the `cloudbuild.yaml` to do something that's actually useful.
-Replace the file contents with the following:
-
-```yaml
-steps:
-  - name: "gcr.io/cloud-builders/docker"
-    args:
-      - "build"
-      - "-t"
-      - "$_ARTIFACT_REGION-docker.pkg.dev/$PROJECT_ID/my-repo/dockercloudbuildyaml"
-      - "."
-  - name: "gcr.io/cloud-builders/docker"
-    args:
-      - "push"
-      - "$_ARTIFACT_REGION-docker.pkg.dev/$PROJECT_ID/my-repo/dockercloudbuildyaml"
-```
-
-Pay attention to the `$`-prefixed `$PROJECT_ID` and `$_ARTIFACT_REGION`.
-`$PROJECT_ID` is a pseudo-variable which is automatically set by the Cloud Build
-environment. `$_ARTIFACT_REGION` is what Cloud Build calls a _substitution_ and
-it allows users to override otherwise static content of the build definition by
-injecting configuration during invocation of the build. Let's take a look:
-
-```bash
-LOCATION="$(gcloud config get-value artifacts/location)"
-gcloud builds submit \
-  --substitutions _ARTIFACT_REGION=${LOCATION}
-```
-
-This will build, tag and store a container image.
-
-To fully understand what else can go into your `cloudbuild.yaml`, please check
-out the
-[schema documentation](https://cloud.google.com/build/docs/build-config-file-schema).
-
-## Deploying to Cloud Run
-
-Cloud Build is a versatile tool and is suited to run a wide variety of
-batch-like jobs. Until now, we only used Cloud Build to accomplish Continuous
-Integration (CI) tasks, but we don't need to stop there.
-
-We can extend the `cloudbuild.yaml` definition and automatically deploy the
-newly created image to Cloud Run like this:
-
-```yaml
-steps:
-  - name: "gcr.io/cloud-builders/docker"
-    args:
-      - "build"
-      - "-t"
-      - "$_ARTIFACT_REGION-docker.pkg.dev/$PROJECT_ID/my-repo/dockercloudbuildyaml"
-      - "."
-  - name: "gcr.io/cloud-builders/docker"
-    args:
-      - "push"
-      - "$_ARTIFACT_REGION-docker.pkg.dev/$PROJECT_ID/my-repo/dockercloudbuildyaml"
-  - name: "gcr.io/cloud-builders/gcloud"
-    args:
-      - "run"
-      - "deploy"
-      - "--region"
-      - "$_RUN_REGION"
-      - "--image"
-      - "$_ARTIFACT_REGION-docker.pkg.dev/$PROJECT_ID/my-repo/dockercloudbuildyaml"
-      - "jokes"
-```
-
-In order for this to work, we need to grant some permissions to the service
-account used by the Cloud Build service agent, so it can interact with Cloud Run
-resources on our behalf.
-
-Navigate to the
-[settings section of Cloud Build in the Google Cloud Console](https://console.cloud.google.com/cloud-build/settings/service-account)
-and assign both the **Cloud Run Admin** and the **Service Account User** roles
-to Cloud Build's service account.
-
-Finally, let's supply all the substitutions and invoke Cloud Build once again to
-execute a fresh build and deploy to Cloud Run automatically.
-
-```bash
-LOCATION="$(gcloud config get-value artifacts/location)"
-REGION="$(gcloud config get-value run/region)"
-gcloud builds submit \
-  --substitutions _ARTIFACT_REGION=${LOCATION},_RUN_REGION=${REGION}
-```
+## Module 2: 
 
 <walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
 
+This completes Module 2. You can now wait for the live session to resume or
+continue by yourself and on-demand.
+
+## Module 3: 
+
 This completes Module 3. You can now wait for the live session to resume or
 continue by yourself and on-demand.
+
+<walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
+
+## Module 4: 
+
+This completes Module 4. You can now wait for the live session to resume or
+continue by yourself and on-demand.
+
+<walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
+
+You have completed the tutorial, well done! Please take a moment and let us know
+what you think.
 
 <walkthrough-inline-feedback></walkthrough-inline-feedback>

@@ -166,14 +166,15 @@ function loadModel() {
                 model.name = data.user_id;
 
                 console.log("Adding ", data.user_id, " model.");
-                if('animations' in gltf) {
+                if(gltf.animations.length > 0) {
+                    console.log(gltf.animations);
                     model.animations = gltf.animations;
                     console.log('Adding ' + model.animations.length + ' animations.')
                 }
         
                 scene.add( model );
         
-                if('animations' in gltf) {
+                if(gltf.animations.length > 0) {
                     mixer = new THREE.AnimationMixer(model);
                     mixer.clipAction(model.animations[0]).play();        
                 }
