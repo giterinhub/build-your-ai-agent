@@ -301,6 +301,11 @@ continue by yourself and on-demand.
 
 ## Module 2: 
 
+<walkthrough-tutorial-difficulty difficulty="3"></walkthrough-tutorial-difficulty>
+
+Estimated time:
+<walkthrough-tutorial-duration duration="30-45"></walkthrough-tutorial-duration>
+
 Let's add some new functionality to our AI Agent. Let's think how can we make our AI
 Agent create us a new avatar. For that, we should invoke some image generation model like
 Imagen 3 for example. Luckily, Vertex AI has an available endpoint for us to to use. 
@@ -484,6 +489,11 @@ continue by yourself and on-demand.
 
 ## Module 3: 
 
+<walkthrough-tutorial-difficulty difficulty="3"></walkthrough-tutorial-difficulty>
+
+Estimated time:
+<walkthrough-tutorial-duration duration="30-45"></walkthrough-tutorial-duration>
+
 Now let's learn how to add Retrieval-augmented Generation to our AI Agent. We'll achieve
 this by using the Vertex AI RAG Engine API - it is a component of 
 the Vertex AI platform, which facilitates Retrieval-Augmented Generation (RAG). RAG Engine 
@@ -580,6 +590,11 @@ completed, the response payload will have the link to the 3D model that you need
 and put into `static/models` folder as well as update the `model` field in  the `models` firestore
 collection to something like `new-filename-that-is-job-id-uuid.glb`. If you manage to achieve
 that then it means you have successfully completed our advanced challange!
+
+<walkthrough-tutorial-difficulty difficulty="4"></walkthrough-tutorial-difficulty>
+
+Estimated time:
+<walkthrough-tutorial-duration duration="60"></walkthrough-tutorial-duration>
 
 ## Summary
 
