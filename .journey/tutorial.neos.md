@@ -119,7 +119,11 @@ This downloads dependencies, imports initial data to firestore and starts the we
 You can now use Cloud Shell Web Preview on port 8080 to check out your application. 
 You can find the Web Preview <walkthrough-web-preview-icon></walkthrough-web-preview-icon> at
 the top right in Cloud Shell. If you don't see a response from the web server,
-try waiting a little longer for the Go compiler to build and start your server.
+try waiting a little longer for the python interpreter to start your server.
+
+Try the AI Agent by asking it some things like "Show me my avatar" or "Show my character model" 
+or even "What is Cloud Run?". You should get some valid responses in form of text or image or
+a render viewport.
 
 Finally, focus the terminal again and terminate the web server with `Ctrl-C`.
 
@@ -156,6 +160,8 @@ do just that:
 
 ```bash
 cd terraform
+cp terraform.tfvars.template terraform.tfvars
+edit terraform.tfvars # change the project_id (your project id) as well as the region (us-central1)
 terraform init
 terraform plan
 terraform apply
@@ -194,8 +200,10 @@ Next, let's use `gcloud` to retrieve the auto-generated service URL and then
 `curl` it:
 
 ```bash
-curl $(gcloud run services describe build-your-ai-agent --format 'value(status.url)')
+gcloud run services describe build-your-ai-agent --format 'value(status.url)'
 ```
+
+Now you can open this URL in your browser and hopefully see Meow AI Agent interface.
 
 Cloud Run services consist of one or more revisions. Whenever you update your
 service or its configuration, you are creating a new revision. Revisions are
@@ -293,6 +301,163 @@ continue by yourself and on-demand.
 
 ## Module 2: 
 
+Let's add some new functionality to our AI Agent. Let's think how can we make our AI
+Agent create us a new avatar. For that, we should invoke some image generation model like
+Imagen 3 for example. Luckily, Vertex AI has an available endpoint for us to to use.
+
+First we need to let our Gemini model know about this method. Open the <walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/services/user.py">user.py</walkthrough-editor-open-file> and add a new definition
+to to `get_function_declarations` method. Something like
+
+```python
+fc_generate_avatar = FunctionDeclaration(
+    name="fc_generate_avatar",
+    description='''Create new avatar or avatar.  
+        Inject the description into the function that is being called.''',
+    parameters={
+        "type": "object",
+        "properties": {
+            "description": {"type": "string", "description": "Description of the picture or avatar"},
+        },
+        "required": [
+            "description",
+        ]
+    }
+)
+```
+
+Also add this variable to the return statement:
+
+```python
+return [
+    fc_generate_avatar, # this is the new entry
+    fc_show_my_model,
+    fc_show_my_avatar
+]
+```
+
+With that out of the way, we need to implement the method now. You can use
+the following snippet as a reference and modify it to your liking:
+
+```python
+def fc_generate_avatar(self, user_id, description):
+    try:
+        model = ImageGenerationModel.from_pretrained(self.config_service.get_property("general", "imagen_version"))
+
+        instruction = self.config_service.get_property("chatbot", "diffusion_generation_instruction")
+
+        images = model.generate_images(
+            prompt=instruction % description,
+            number_of_images=4,
+            language="en",
+            seed=100,
+            add_watermark=False,
+            aspect_ratio="1:1",
+            safety_filter_level="block_some",
+            person_generation="allow_adult",
+        )
+
+        output_file = "static/avatars/" + str(user_id) + ".png"
+        images[0].save(location=output_file, include_generation_parameters=False)        
+
+        cdn_url = '/' + output_file
+    except Exception as e:
+        logging.info("%s, %s", traceback.format_exc(), e)
+        return 'Reply that we failed to generate a new avatar. Ask them to try again later'
+
+    try:
+        # Update Firestore "users" collection
+        user_ref = self.db.collection("users").where(filter=FieldFilter("user_id", "==", user_id))
+        user_ref.get()[0].reference.update({"avatar": cdn_url})
+        logging.info('Updated user avatar to %s', cdn_url)
+    except Exception as e:
+        logging.info("%s, %s", traceback.format_exc(), e)
+        return 'Reply that we failed to generate a new avatar. Ask them to try again later'
+
+    return '''Reply that the avatar was successfully created.''', '''
+        <div>
+            <br>
+            <img class="avatar" src="%s?rand=%s">
+        </div>''' % (cdn_url, str(random.randint(0, 1000000)))
+```
+
+Now save the code and try asking our Meow AI Agent to create a new avatar by giving a description.
+Something long the lines of "Create me a new avatar that is a cute, lowpoly, grey cat".
+
+That was pretty neat, wasn't it? Now let's try something else... let's try making Gemini
+change the color of our current 3D character. In this demo I have included a basic glb model
+of a cat. You can see it by asking the agent to show you the model or character. Now, the rendering
+and color changing functionality is already implemented on the frontend side, however it needs to be
+called and instructed with which color to work. For that we need to create yet another "function" and 
+instruct Gemini to call it. Same as previously, we add the reference:
+
+```python
+fc_save_model_color = FunctionDeclaration(
+    name="fc_save_model_color",
+    description="Save new color when user requests to update his game model. Input is a color in hex format",
+    parameters={
+        "type": "object",
+        "properties": {
+            "color": {"type": "string", "description": "Hex color"},
+        },
+        "required": [
+            "color"
+        ]
+    }
+)
+```
+
+and add it to the return of the `get_function_declarations` method:
+
+```python
+return [
+    fc_generate_avatar,
+    fc_save_model_color, # new return
+    fc_show_my_model,
+    fc_show_my_avatar
+]
+```
+
+And lastly we need to implement the actual method. Here you have another sample implementation
+that you are free to modify to your liking:
+
+```python
+def fc_save_model_color(self, user_id, color):
+    try:
+        # Get the models collection reference
+        models_ref = self.db.collection("models")
+
+        # Query for the model with the given user_id
+        query = models_ref.where(filter=FieldFilter("user_id", "==", user_id))
+        results = query.get()
+
+        if not results:
+            return f"Reply that no character for user '{user_id}' was found."
+
+        # Update the color of the first matching document
+        for doc in results:
+            doc.reference.update({"color": color, "original_material": False})
+            logging.info(f"Updated color to '{color}' for '{user_id}'\'s model.")
+            break
+
+        return '''Reply that their character color has been updated''', '''<script>window.reloadCurrentModel();</script>'''
+    
+    except Exception as e:
+        logging.error("%s, %s", traceback.format_exc(), e)
+        return 'Reply that we failed to update their character settings.'
+
+```
+
+Save the code, ask the AI Agent to show your model and then ask it to change  the color to whatever
+you like. Hopefully you will see the result on the screen right away!
+
+Now you might be asking yourself, how are these methods invoked? How does the actual runtime 
+calls the method that Gemini asks it to? Well, take a look at the implementatio in <walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/services/function_calling.py">function_calling.py</walkthrough-editor-open-file>.
+In a nutshell, gemini responds with a structured payload saying which method to call and with which
+parameters. In python this is achieved via the following method:
+```python 
+return getattr(object, function)(**parameters)
+```
+
 ## Summary
 
 Now you should feel comfortable using our Vertex AI SDK for Python. You should be able
@@ -305,6 +470,78 @@ continue by yourself and on-demand.
 
 ## Module 3: 
 
+Now let's learn how to add Retrieval-augmented Generation to our AI Agent. We'll achieve
+this by using the Vertex AI RAG Engine API - it is a component of 
+the Vertex AI platform, which facilitates Retrieval-Augmented Generation (RAG). RAG Engine 
+enables Large Language Models (LLMs) to access and incorporate data from external knowledge 
+sources, such as documents and databases. By using RAG, LLMs can generate more accurate and 
+informative LLM responses. In this module we will add a document imaginary game called Cloud Meow. 
+Document in question is <walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/data/CloudMeow.pdf">CloudMeow.pdf</walkthrough-editor-open-file> - feel free to take a look :)
+
+First step would be to set the correct path in <walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/config.ini">config.ini</walkthrough-editor-open-file> by modifying YOUR_PROJECT_NUMBER to the 
+number of your project. To find your project number you can either go to Google Cloud Storage
+in the console or use the following command in the open terminal:
+```bash
+gcloud projects list --filter PROJECT_ID=<walkthrough-project-id/> --format="value(PROJECT_NUMBER)"
+```
+
+Also please change `use_rag = false` to `use_rag = true`.
+
+Next step would be to create a handler for RAG so it can be invoked by our main Gemini model.
+Currently having function calling and RAG in the same instance is not possible hence the
+need for two separate Gemini instances. The flow is as folows:
+```
+Request -> Gemini with Function Calling -> Function Call -> (Direct function execution || RAG model invocation) -> Output
+```
+
+Using Vertex AI RAG Engine involves just 3 steps:
+1. Creating a corpus
+2. Importing the files
+3. Retrieving data from the Vertex RAG Store by specifying the corpus we created
+
+As in the second module, we need to create a definition for our new method:
+```python
+fc_rag_retrieval = FunctionDeclaration(
+    name="fc_rag_retrieval",
+    description='''Function to be invoked when the prompt is 
+        about a super secret game called Cloud Meow.''',
+    parameters={
+        "type": "object",
+        "properties": {
+            "question_passthrough": {"type": "string", "description": "The whole user's prompt in the context of this message"}
+        },
+        "required": [
+            "question_passthrough",
+        ]            
+    }
+)
+
+### rest of function declarations
+
+return [
+    fc_rag_retrieval, # new return
+    fc_generate_avatar,
+    fc_save_model_color,
+    fc_show_my_model,
+    fc_show_my_avatar
+]
+```
+
+And the implementation of the actual method:
+
+```python
+def fc_rag_retrieval(self, user_id, question_passthrough):
+    response = self.rag_model.generate_content(question_passthrough)
+    return extract_text(response), ''
+```
+
+As you can see, the implementation is just a simple passthrough of the question to
+another instance of Gemini that was created with RAG that the grounding via provided
+PDF document that we specified in the config.ini.
+
+Now you can ask the Meow AI Agent something unique to what is in that document, for
+example "What's the visual style of Cloud Meow game?"
+
 ## Summary
 
 Now you are fluent in using our RAG Engine API and should be able to incorporate data from
@@ -316,6 +553,17 @@ This completes Module 3. You can now wait for the live session to resume or
 continue by yourself and on-demand.
 
 ## Module 4: 
+
+This module is more a free style module. I would like you to create a custom functionality
+that responds to "Create me a 3D model / character from my avatar". Conviniently I have an
+endpoint with a very fancy diffusion model that does just that. It's an API that allows you
+to submit a job by providing an image in base64 format as part of JSON payload - 
+({"image": "BASE64_IMAGE_DATA"}). The API will respond with a job_id that allows you to query
+the second endpoint to see whether the generation task has finished or not. If the task has
+completed, the response payload will have the link to the 3D model that you need to download 
+and put into `static/models` folder as well as update the `model` field in  the `models` firestore
+collection to something like `new-filename-that-is-job-id-uuid.glb`. If you manage to achieve
+that then it means you have successfully completed our advanced challange!
 
 ## Summary
 

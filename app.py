@@ -179,13 +179,13 @@ def chat():
 
 @app.route("/", methods=["GET"])
 def home():
-    if os.environ.get("DEV_MODE") == "true":
-        with open("templates/index.html", mode='r') as file: #
-            data = file.read()
+#    if os.environ.get("DEV_MODE") == "true":
+    with open("templates/index.html", mode='r') as file: #
+        data = file.read()
 
-        return data
+    return data
     
-    return render_template("index.html")
+#    return render_template("index.html")
 
 @app.route("/version", methods=["GET"])
 def version():
