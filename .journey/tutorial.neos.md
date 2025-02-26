@@ -303,7 +303,18 @@ continue by yourself and on-demand.
 
 Let's add some new functionality to our AI Agent. Let's think how can we make our AI
 Agent create us a new avatar. For that, we should invoke some image generation model like
-Imagen 3 for example. Luckily, Vertex AI has an available endpoint for us to to use.
+Imagen 3 for example. Luckily, Vertex AI has an available endpoint for us to to use. 
+
+ Imagen 3 can do the following:
+
+ - Generate images with better detail, richer lighting, and fewer distracting artifacts than previous models
+ - Understand prompts written in natural language
+ - Generate images in a wide range of formats and styles
+ - Render text more effectively than previous models
+
+We will be focusing on simple image generation here.
+
+## Avatar generation
 
 First we need to let our Gemini model know about this method. Open the <walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/services/user.py">user.py</walkthrough-editor-open-file> and add a new definition
 to to `get_function_declarations` method. Something like
@@ -381,9 +392,12 @@ def fc_generate_avatar(self, user_id, description):
 ```
 
 Now save the code and try asking our Meow AI Agent to create a new avatar by giving a description.
-Something long the lines of "Create me a new avatar that is a cute, lowpoly, grey cat".
+Something long the lines of "Create me a new avatar that is a cute, lowpoly, grey cat". That was 
+pretty neat, wasn't it? 
 
-That was pretty neat, wasn't it? Now let's try something else... let's try making Gemini
+## 3D Model Material manipulation
+
+Now let's try something else... let's try making Gemini
 change the color of our current 3D character. In this demo I have included a basic glb model
 of a cat. You can see it by asking the agent to show you the model or character. Now, the rendering
 and color changing functionality is already implemented on the frontend side, however it needs to be
@@ -451,7 +465,7 @@ Save the code, ask the AI Agent to show your model and then ask it to change  th
 you like. Hopefully you will see the result on the screen right away!
 
 Now you might be asking yourself, how are these methods invoked? How does the actual runtime 
-calls the method that Gemini asks it to? Well, take a look at the implementatio in <walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/services/function_calling.py">function_calling.py</walkthrough-editor-open-file>.
+calls the method that Gemini asks it to? Well, take a look at the implementatio in <walkthrough-editor-open-file filePath="cloudshell_open/build-your-ai-agent/common/function_calling.py">function_calling.py</walkthrough-editor-open-file>.
 In a nutshell, gemini responds with a structured payload saying which method to call and with which
 parameters. In python this is achieved via the following method:
 ```python 
@@ -498,6 +512,8 @@ Using Vertex AI RAG Engine involves just 3 steps:
 1. Creating a corpus
 2. Importing the files
 3. Retrieving data from the Vertex RAG Store by specifying the corpus we created
+
+## RAG integration
 
 As in the second module, we need to create a definition for our new method:
 ```python
