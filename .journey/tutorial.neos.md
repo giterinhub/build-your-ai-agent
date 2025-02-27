@@ -582,11 +582,66 @@ continue by yourself and on-demand.
 
 This module is more a free style module. I would like you to create a custom functionality
 that responds to "Create me a 3D model / character from my avatar". Conviniently I have an
-endpoint with a very fancy diffusion model that does just that. It's an API that allows you
-to submit a job by providing an image in base64 format as part of JSON payload - 
-({"image": "BASE64_IMAGE_DATA"}). The API will respond with a job_id that allows you to query
-the second endpoint to see whether the generation task has finished or not. If the task has
-completed, the response payload will have the link to the 3D model that you need to download 
+endpoint with a very fancy diffusion model that does just that. 
+
+**API Endpoint**
+
+`https://genai3d.nikolaidan.demo.altostrat.com/upload`
+
+**Request Method**
+
+-   `POST`
+
+**Request Body**
+
+The request body should be in `JSON` format and contain the following:
+
+-   **`image` (string):** The input image, encoded as a Base64 string.
+
+**Example Request Body:**
+
+```json
+{
+  "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+}
+```
+
+**Example response Body:**
+
+```json
+{
+  "status": "success",
+  "job_id": "12345678-1234-1234-1234-1234567890ab"
+}
+```
+
+Now to check the job status you can use the following endpoint:
+
+**Checking the task execution status**
+
+ `https://genai3d.nikolaidan.demo.altostrat.com/check_job/12345678-1234-1234-1234-1234567890ab`
+
+**Request Method**
+
+-   `GET`
+
+**Example response Body:**
+
+```json
+{
+  "status": "queued"
+}
+```
+
+or
+
+```json
+{
+  "filename": "http://genai3d.nikolaidan.demo.altostrat.com/models/12345678-1234-1234-1234-1234567890ab.glb",
+  "status": "finished"
+}```
+
+If the task has completed, the response payload will have the link to the 3D model that you need to download 
 and put into `static/models` folder as well as update the `model` field in  the `models` firestore
 collection to something like `new-filename-that-is-job-id-uuid.glb`. If you manage to achieve
 that then it means you have successfully completed our advanced challange!
