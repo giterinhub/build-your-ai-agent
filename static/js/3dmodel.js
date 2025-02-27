@@ -41,7 +41,7 @@ function init() {
     //document.body.appendChild( container );
 
     camera = new THREE.PerspectiveCamera( 45, container_width / container_height, 0.25, 500 );
-    camera.position.set( -5, 3, 15 );
+    camera.position.set( -5, 3, 5 );
     camera.lookAt( 0, 2, 0 );
 
     scene = new THREE.Scene();
@@ -87,9 +87,9 @@ function init() {
     controls.dampingFactor = 0.05;
 
     controls.screenSpacePanning = false;
-    controls.target = new THREE.Vector3(0, 2, 0);
+    controls.target = new THREE.Vector3(0, 0, 0);
 
-    controls.minDistance = 25;
+    controls.minDistance = 5;
     controls.maxDistance = 250;
 
     controls.maxPolarAngle = Math.PI / 2;
