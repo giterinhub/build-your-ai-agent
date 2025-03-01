@@ -214,4 +214,25 @@ def reset():
 
 if __name__ == "__main__":
     os.makedirs('uploads', exist_ok=True)
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8888)))
+    
+    # Get port from environment variable or use the default
+    port = int(os.environ.get("PORT", 8080))
+    
+    # Check if SSL certificates are available
+    ssl_context = None
+    cert_file = os.environ.get("SSL_CERT_FILE", "server.crt")
+    key_file = os.environ.get("SSL_KEY_FILE", "server.key")
+    
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        ssl_context = (cert_file, key_file)
+        logging.info(f"HTTPS enabled with certificates: {cert_file} and {key_file}")
+    else:
+        logging.warning("SSL certificates not found. Running in HTTP mode only.")
+    
+    # Run the Flask app with appropriate configuration
+    app.run(
+        host="0.0.0.0", 
+        port=port,
+        ssl_context=ssl_context,
+        debug=os.environ.get("DEBUG", "false").lower() == "true"
+    )
